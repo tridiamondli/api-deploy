@@ -85,12 +85,13 @@ class APILogger:
         
         request_id = f"{int(time.time() * 1000000)}"  # 微秒级时间戳
         client_ip = self.get_client_ip(request)
+        method = request.method  # 从request对象获取实际的HTTP方法
         
         log_context = {
             "request_id": request_id,
             "endpoint": endpoint,
             "client_ip": client_ip,
-            "method": "POST"
+            "method": method
         }
         
         # 构建日志数据
@@ -98,7 +99,7 @@ class APILogger:
             "request_id": request_id,
             "endpoint": endpoint,
             "client_ip": client_ip,
-            "method": "POST",
+            "method": f"{method}",
             "user_agent": getattr(request.headers, 'user-agent', 'unknown')
         }
         
