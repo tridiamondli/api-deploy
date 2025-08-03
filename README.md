@@ -5,14 +5,16 @@
 
 ## ✨ 核心特性
 
-- 🔄 **热重载支持** - 文件修改后自动重新加载，无需重启服务器
+- 🔄 **热重载支持** - API/配置文件修改后自动重新加载，无需重启服务器
 - 🧩 **模块化架构** - 每个功能模块独立开发和部署
+- 🌐 **多请求方法支持** - 支持 GET 和 POST 请求，异步支持，可灵活配置
 - 🔐 **Token认证** - 内置安全的API认证机制
 - 📝 **完整日志系统** - 请求追踪、错误记录、系统事件监控
 - ⚡ **异步支持** - 支持同步和异步API函数
-- 🛡️ **错误处理** - 统一的错误响应格式和异常处理
 - 📊 **API注册中心** - 自动发现和注册API端点
 - 🔧 **灵活配置** - 可配置的服务器参数和日志选项
+- 🎯 **智能参数提取** - GET请求从查询参数提取，POST请求从JSON body提取
+- 🔄 **自动类型转换** - GET请求参数自动类型转换
 
 ## 🏗️ 项目结构
 
@@ -81,6 +83,32 @@ python main.py
 服务器启动后，访问 http://127.0.0.1:8000 查看API状态。
 注意：部署到服务器，配合守护进程使用更佳！
 
+## 🎯 快速示例
+实现参考apis下模板
+
+### GET请求示例
+
+```bash
+# 简单的GET请求（使用默认参数）
+curl "http://127.0.0.1:8000/template/sync_hello?token=your-token"
+
+# 带参数的GET请求
+curl "http://127.0.0.1:8000/template/sync_hello?token=your-token&name=Alice"
+```
+### POST请求示例
+
+```bash
+# POST请求调用,业务请求参数包裹在body中
+curl -X POST http://127.0.0.1:8000/template/sync_hello \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your-token",
+    "body": {
+      "name": "Alice"
+    }
+  }'
+```
+
 ## 📖 API开发指南
 
 ### 创建新的API模块
@@ -100,10 +128,11 @@ import time
 from decorators import api_function
 # 在这里导入您需要的其他库
 
-@api_function
+@api_function(GET=True, POST=True)
 def sync_hello(name: str = "World"):
     """
     示例函数：问候（同步版本）
+    支持GET和POST两种请求方式
     
     参数:
         name (str): 要问候的名字，默认为"World"
@@ -117,10 +146,11 @@ def sync_hello(name: str = "World"):
         "type": "synchronous"
     }
 
-@api_function
+@api_function(GET=False, POST=True)
 async def async_hello(name: str = "World", delay: float = 0.5):
     """
     示例异步函数：异步问候
+    只支持POST请求方式
     
     参数:
         name (str): 要问候的名字，默认为"World"
@@ -143,9 +173,56 @@ async def async_hello(name: str = "World", delay: float = 0.5):
     }
 ```
 
+### HTTP请求方法配置
+
+使用 `@api_function` 装饰器可以灵活配置API支持的HTTP方法：
+
+```python
+# 默认只支持POST请求（默认行为，向后兼容）
+@api_function
+def post_only_api():
+    return {"method": "POST only"}
+
+# 只支持GET请求
+@api_function(GET=True, POST=False)
+def get_only_api():
+    return {"method": "GET only"}
+
+# 同时支持GET和POST请求
+@api_function(GET=True, POST=True)
+def both_methods_api():
+    return {"method": "GET and POST"}
+
+# 简化写法：只启用GET（POST默认为True）
+@api_function(GET=True)
+def get_and_post_api():
+    return {"method": "GET and POST"}
+```
+
 ### API调用格式
 
-所有业务API端点都遵循统一的调用格式，POST请求参数包裹在body中：
+根据API配置的支持方法，有以下几种调用方式：
+
+#### GET请求调用
+
+**请求URL：** `GET /{module_name}/{function_name}?param1=value1&param2=value2&token=your-token`
+
+**示例：**
+```bash
+# 调用template模块的sync_hello函数
+GET http://127.0.0.1:8000/template/sync_hello?token=your-token&name=Alice
+
+# 带类型转换的参数
+GET http://127.0.0.1:8000/user/get_user?token=your-token&user_id=123&active=true
+```
+
+**GET请求特点：**
+- Token通过查询参数 `token` 传递
+- 函数参数直接作为查询参数传递
+- 自动进行类型转换（支持 str、int、float、bool）
+- 适用于简单参数的查询类操作
+
+#### POST请求调用
 
 **请求URL：** `POST /{module_name}/{function_name}`
 
@@ -160,24 +237,75 @@ async def async_hello(name: str = "World", delay: float = 0.5):
 }
 ```
 
-**响应格式：**
+**示例：**
+```bash
+# 调用template模块的sync_hello函数
+curl -X POST http://127.0.0.1:8000/template/sync_hello \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your-token",
+    "body": {
+      "name": "Alice"
+    }
+  }'
+
+# 调用异步函数
+curl -X POST http://127.0.0.1:8000/template/async_hello \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your-token", 
+    "body": {
+      "name": "Bob",
+      "delay": 1.5
+    }
+  }'
+```
+
+**POST请求特点：**
+- Token在JSON body中的 `token` 字段传递
+- 函数参数在JSON body中的 `body` 字段传递
+- 支持复杂数据类型（对象、数组等）
+- 适用于复杂参数的数据操作
+
+#### 统一响应格式
+
+无论GET还是POST请求，响应格式都是统一的：
+
+**成功响应：**
 ```json
 {
     "success": true,
     "data": {
         // 函数返回的数据
+        "message": "Hello, Alice!",
+        "timestamp": 1722700800000,
+        "type": "synchronous"
     },
-    "endpoint": "/module_name/function_name"
+    "endpoint": "/template/sync_hello"
 }
 ```
 
-**错误响应格式：**
+**错误响应：**
 ```json
 {
     "success": false,
     "error": "错误描述",
     "code": "ERROR_CODE",
-    "endpoint": "/module_name/function_name"
+    "endpoint": "/template/sync_hello"
+}
+```
+
+#### 方法不支持错误
+
+如果调用了API不支持的HTTP方法，会返回405错误：
+
+```json
+{
+    "success": false,
+    "error": "Method GET not allowed for endpoint /template/async_hello",
+    "code": "METHOD_NOT_ALLOWED",
+    "endpoint": "/template/async_hello",
+    "allowed_methods": ["POST"]
 }
 ```
 
@@ -270,13 +398,84 @@ curl -X POST http://127.0.0.1:8000/api/reload-config \
 http://127.0.0.1:8000/
 ```
 
-### 参数验证
+### 参数验证和类型转换
 
-`注意: 系统会自动验证函数参数：`
+系统会自动验证函数参数并进行智能类型转换：
+
+#### GET请求参数类型转换
+
+GET请求的查询参数都是字符串，系统会根据函数签名自动转换类型：
+
+```python
+@api_function(GET=True)
+def user_search(user_id: int, active: bool = True, score: float = 0.0):
+    """
+    GET请求示例：
+    /user/user_search?user_id=123&active=true&score=95.5
+    
+    参数会自动转换为：
+    user_id: int = 123
+    active: bool = True  
+    score: float = 95.5
+    """
+    return {
+        "user_id": user_id,
+        "active": active, 
+        "score": score,
+        "types": {
+            "user_id": type(user_id).__name__,
+            "active": type(active).__name__,
+            "score": type(score).__name__
+        }
+    }
+```
+
+**支持的类型转换：**
+- `str`：保持字符串不变
+- `int`：转换为整数
+- `float`：转换为浮点数  
+- `bool`：支持 `true`/`false`、`1`/`0`、`yes`/`no`、`on`/`off`
+
+**类型转换错误处理：**
+```json
+{
+    "success": false,
+    "error": "Invalid parameter type for 'user_id': expected int, got 'abc'",
+    "code": "INVALID_PARAMETER_TYPE",
+    "parameter": "user_id",
+    "expected_type": "int",
+    "received_value": "abc"
+}
+```
+
+#### 参数验证规则
 
 - **类型检查**：根据函数签名验证参数类型
 - **必需参数**：检查是否提供了所有必需参数
 - **参数匹配**：只接受函数签名中定义的参数
+- **无效参数**：拒绝函数签名中未定义的参数
+
+**参数验证错误示例：**
+
+```json
+// 缺少必需参数
+{
+    "success": false,
+    "error": "Missing required parameter: user_id",
+    "code": "MISSING_PARAMETER",
+    "required_parameters": ["user_id"],
+    "optional_parameters": ["active", "score"]
+}
+
+// 无效参数
+{
+    "success": false, 
+    "error": "Invalid parameter(s): unknown_param",
+    "code": "INVALID_PARAMETER",
+    "valid_parameters": ["user_id", "active", "score"],
+    "received_parameters": ["user_id", "unknown_param"]
+}
+```
 
 ### 异步支持
 
@@ -322,6 +521,18 @@ A: 确保函数使用了 `@api_function` 装饰器
 
 **Q: 认证失败？**
 A: 检查请求中的 `token` 是否在 `VALID_TOKENS`或`ADMIN_TOKENS` 列表中
+
+**Q: GET请求返回"Invalid request format"错误？**
+A: 确保在GET请求的URL中包含了 `token` 参数，例如：`?token=your-token&param=value`
+
+**Q: GET请求返回"Method GET not allowed"错误？**
+A: 检查API函数的装饰器是否启用了GET支持：`@api_function(GET=True)`
+
+**Q: GET请求参数类型转换失败？**
+A: 检查查询参数值是否符合函数签名中定义的类型。例如，整数参数不能传递字母字符串
+
+**Q: POST请求在支持GET的API上失败？**
+A: 确保POST请求仍然按照原格式在JSON body中传递token和参数：`{"token": "...", "body": {...}}`
 
 **Q: 重载API访问被拒绝？**
 A: 重载功能需要提供有效的token。GET请求通过URL参数传递，POST请求通过请求体传递

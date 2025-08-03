@@ -202,5 +202,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-
+tests
 logs/*
+tests/*
+
+run_tests.py
+test_reload_only.py

@@ -11,11 +11,20 @@ def get_current_config():
 async def verify_token(request: Request):
     """
     验证普通业务API请求中的token
+    支持GET和POST请求
+    GET请求: 通过query参数传递token
+    POST请求: 通过request body传递token
     """
     try:
-        # 获取请求体
-        body = await request.json()
-        token = body.get("token")
+        token = None
+        
+        if request.method == "GET":
+            # GET请求从query参数获取token
+            token = request.query_params.get("token")
+        else:
+            # POST请求从body获取token
+            body = await request.json()
+            token = body.get("token")
         
         if not token:
             raise HTTPException(
@@ -74,7 +83,7 @@ async def verify_admin_token(request: Request, token: Optional[str] = None):
     current_config = get_current_config()
     if request_token not in current_config.ADMIN_TOKENS:
         raise HTTPException(
-            status_code=403,
+            status_code=401,
             detail={
                 "success": False,
                 "error": "Invalid admin token or insufficient permissions",

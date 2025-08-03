@@ -9,7 +9,7 @@ import time
 from decorators import api_function
 # 在这里导入您需要的其他库
 
-@api_function
+@api_function(GET=True, POST=True)
 def sync_hello(name: str = "World"):
     """
     示例函数：问候（同步版本）
@@ -26,7 +26,7 @@ def sync_hello(name: str = "World"):
         "type": "synchronous"
     }
 
-@api_function
+@api_function(GET=False, POST=True)
 async def async_hello(name: str = "World", delay: float = 0.5):
     """
     示例异步函数：异步问候
@@ -48,5 +48,6 @@ async def async_hello(name: str = "World", delay: float = 0.5):
     return {
         "message": f"Hello, {name}! (异步处理完成)",
         "timestamp": int(time.time()*1000),
+        "processing_time": round((end_time - start_time) * 1000, 2),
         "type": "asynchronous"
     }
